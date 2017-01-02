@@ -14,6 +14,11 @@ import java.util.Scanner;
 import javax.swing.*;
 import javax.swing.event.SwingPropertyChangeSupport;
 
+/**
+ * link: http://stackoverflow.com/a/41418250/522444
+ * @author Pete
+ *
+ */
 public class Main2 extends JPanel {
     public static final String INPUT = "1111111111111111111111111111111111111111111\n"
             + "1000000010001000001000000010000000100000001\n"
