@@ -107,6 +107,12 @@ public class MatrixModel {
             break;
         }
     }
+    
+    public void reset() {
+        // TODO: finish
+    }
+    
+    // TODO code to change the grid
 
     public SpritePosition getSpritePosition() {
         return spritePosition;
