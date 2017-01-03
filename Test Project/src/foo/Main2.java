@@ -1,71 +1,59 @@
 package foo;
 
-import java.awt.Point;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+// import java.awt.SpritePosition;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
-import javax.swing.*;
+import javax.swing.AbstractAction;
+import javax.swing.ActionMap;
+import javax.swing.InputMap;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 import javax.swing.event.SwingPropertyChangeSupport;
 
 /**
  * link: http://stackoverflow.com/a/41418250/522444
+ * 
  * @author Pete
  *
  */
+@SuppressWarnings("serial")
 public class Main2 extends JPanel {
-    public static final String INPUT = "1111111111111111111111111111111111111111111\n"
-            + "1000000010001000001000000010000000100000001\n"
-            + "1010111010101010101111101011111010111111101\n"
-            + "1010001010100010100000001010000010000010001\n"
-            + "1011101010111110101111111010111111111010111\n"
-            + "1000101010100000101000001000100010000010001\n"
-            + "1011101011101011111011101111111010111110101\n"
-            + "1010001000001010000010100000001010000010101\n"
-            + "1010111111111010111110111111101011111011101\n"
-            + "1010100000100010100000000000101000000000101\n"
-            + "1110101111101110111110111011101011111110101\n"
-            + "1000100000000010000010100010001000100010001\n"
-            + "1011111111111111111011101010111111101011101\n"
-            + "1000000000000000100010001010000000001010001\n"
-            + "1011111111111011101110111011111111111010111\n"
-            + "1000100010001000001010001000100000001010101\n"
-            + "1110101011101111111010101110111110111010101\n"
-            + "1000101010001000100000101000100000100010001\n"
-            + "1011101010111010101111101011101110101111111\n"
-            + "1000001010000010000000101000001000100010001\n"
-            + "1111111011111110111111101111111011111010101\n"
-            + "1000001010000010100010001000000010000010101\n"
-            + "1011111010111011101010111011111110101110101\n"
-            + "1010000010001010001010001000100000101010101\n"
-            + "1010111111101010111011101111101111101011101\n"
-            + "1000100000001010101010001000100010101000101\n"
-            + "1011111011111010101010111010111010101011101\n"
-            + "1010000010001000101010000010001010001000001\n"
-            + "1010101110101111101011101111101011111010101\n"
-            + "1010101000101000001000101000001000000010101\n"
-            + "1011101011111010111110111011101111111110111\n"
-            + "1000001000000010000000000010000000000010021\n"
-            + "1111111111111111111111111111111111111111111\n";
-    private List<List<MatrixPosition>> matrix = new ArrayList<>();
+    private MainPanel mainPanel;
 
-    public Main2() {
+    public Main2(MatrixModel matrixModel) {
+        mainPanel = new MainPanel(matrixModel);
+        new Controller(matrixModel, mainPanel);
+
+        setLayout(new BorderLayout());
+        add(mainPanel, BorderLayout.CENTER);
     }
 
     private static void createAndShowGui(MatrixModel model) {
-        Main2 mainPanel = new Main2();
+        Main2 mainPanel = new Main2(model);
 
         JFrame frame = new JFrame("Main2");
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.getContentPane().add(mainPanel);
         frame.pack();
-        frame.setLocationByPlatform(true);
+        frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }
 
@@ -80,14 +68,167 @@ public class Main2 extends JPanel {
     }
 }
 
+class Controller {
+    private MatrixModel model;
+    private MainPanel view;
+    private Map<Direction, KeyStroke> dirKeyMap = new EnumMap<>(Direction.class);
+
+    public Controller(MatrixModel model, MainPanel view) {
+        this.model = model;
+        this.view = view;
+
+        dirKeyMap.put(Direction.DOWN, KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0));
+        dirKeyMap.put(Direction.UP, KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0));
+        dirKeyMap.put(Direction.LEFT, KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0));
+        dirKeyMap.put(Direction.RIGHT, KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0));
+
+        model.addPropertyChangeListener(new ModelListener());
+        setUpKeyBindings(view);
+    }
+
+    private void setUpKeyBindings(MainPanel view) {
+        int condition = JComponent.WHEN_IN_FOCUSED_WINDOW;
+        InputMap inputMap = view.getInputMap(condition);
+        ActionMap actionMap = view.getActionMap();
+        for (Direction dir : Direction.values()) {
+            KeyStroke keyStroke = dirKeyMap.get(dir);
+            hookUp(inputMap, actionMap, dir, keyStroke);
+        }
+    }
+
+    private void hookUp(InputMap inputMap, ActionMap actionMap, Direction dir, KeyStroke key) {
+        inputMap.put(key, key.toString());
+        actionMap.put(key.toString(), new MoveAction(dir, model));
+    }
+
+    public MatrixModel getModel() {
+        return model;
+    }
+
+    public MainPanel getView() {
+        return view;
+    }
+
+    class ModelListener implements PropertyChangeListener {
+        @Override
+        public void propertyChange(PropertyChangeEvent evt) {
+            if (MatrixModel.SPRITE_POINT.equals(evt.getPropertyName())) {
+                SpritePosition p = model.getSpritePosition();
+                view.setSpritePoint(p);
+            }
+        }
+    }
+
+}
+
+@SuppressWarnings("serial")
+class MoveAction extends AbstractAction {
+    private Direction dir;
+    private MatrixModel model;
+
+    public MoveAction(Direction dir, MatrixModel model) {
+        super(dir.toString());
+        this.dir = dir;
+        this.model = model;
+    }
+
+    public void actionPerformed(ActionEvent e) {
+        if (model.isMoveValid(dir)) {
+            model.move(dir);
+        }
+    }
+}
+
+@SuppressWarnings("serial")
+class MainPanel extends JPanel {
+    private static final int CELL_WIDTH = 20;
+    private static final Color CORRIDOR_COLOR = Color.LIGHT_GRAY;
+    private static final Color WALL_COLOR = Color.DARK_GRAY;
+    private static final Color END_COLOR = Color.ORANGE;
+    private static final Color SPRITE_COLOR = Color.RED;
+    private static final int GAP = 1;
+    private BufferedImage gridImg = null;
+    private SpritePosition spritePosition;
+
+    public MainPanel(MatrixModel matrixModel) {
+        gridImg = createImg(matrixModel);
+        spritePosition = matrixModel.getSpritePosition();
+    }
+
+    @Override
+    public Dimension getPreferredSize() {
+        if (isPreferredSizeSet() || gridImg == null) {
+            return super.getPreferredSize();
+        }
+        int prefW = gridImg.getWidth();
+        int prefH = gridImg.getHeight();
+        return new Dimension(prefW, prefH);
+    }
+
+    public void setSpritePoint(SpritePosition spritePosition) {
+        this.spritePosition = spritePosition;
+        repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (gridImg != null) {
+            g.drawImage(gridImg, 0, 0, this);
+        }
+        g.setColor(SPRITE_COLOR);
+        int y = spritePosition.row * CELL_WIDTH + GAP;
+        int x = spritePosition.column * CELL_WIDTH + GAP;
+        g.fillRect(x, y, CELL_WIDTH - 2 * GAP, CELL_WIDTH - 2 * GAP);
+    }
+
+    private BufferedImage createImg(MatrixModel matrixModel) {
+        BufferedImage img = null;
+        if (matrixModel != null && matrixModel.getRows() > 0) {
+            int w = matrixModel.getColumns() * CELL_WIDTH;
+            int h = matrixModel.getRows() * CELL_WIDTH;
+            img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = img.createGraphics();
+            for (int row = 0; row < matrixModel.getRows(); row++) {
+                for (int col = 0; col < matrixModel.getColumns(); col++) {
+                    MatrixPosition position = matrixModel.getPosition(row, col);
+                    Color c = null;
+                    switch (position) {
+                    case CORRIDOR:
+                        c = CORRIDOR_COLOR;
+                        break;
+                    case WALL:
+                        c = WALL_COLOR;
+                        break;
+                    case END:
+                        c = END_COLOR;
+                        break;
+                    }
+                    g2.setColor(c);
+                    int x = col * CELL_WIDTH;
+                    int y = row * CELL_WIDTH;
+                    g2.fillRect(x, y, CELL_WIDTH, CELL_WIDTH);
+                }
+            }
+            g2.dispose();
+        }
+        return img;
+    }
+
+}
+
 class MatrixUtil {
     public static final String PATH_TO_RSC = "input.txt";
-    
+
     public static MatrixModel getInput(String resourcePath) {
         InputStream is = MatrixUtil.class.getResourceAsStream(resourcePath);
+        if (is == null) {
+            String text = "resourcePath is not found and not loading text: " + resourcePath;
+            throw new IllegalArgumentException(text);
+        }
         return getInput(is);
     }
-    
+
     public static MatrixModel getInput(InputStream is) {
         MatrixModel model = null;
         try (Scanner scan = new Scanner(is)) {
@@ -108,7 +249,7 @@ class MatrixUtil {
                 List<MatrixPosition> list = listOfLists.get(i);
                 grid[i] = list.toArray(new MatrixPosition[] {});
             }
-            model = new MatrixModel(grid, new Point(0, 0));
+            model = new MatrixModel(grid, new SpritePosition(1, 1));
         }
 
         return model;
@@ -120,42 +261,58 @@ class MatrixModel {
     public static final String SPRITE_POINT = "sprite point";
     private SwingPropertyChangeSupport pcSupport = new SwingPropertyChangeSupport(this);
     private MatrixPosition[][] grid;
-    private Point spritePoint;
+    private SpritePosition spritePosition;
 
-    public MatrixModel(MatrixPosition[][] grid, Point spritePoint) {
+    public MatrixModel(MatrixPosition[][] grid, SpritePosition spritePosition) {
         this.grid = grid;
-        this.spritePoint = spritePoint;
+        this.spritePosition = spritePosition;
     }
 
-    public void setSpritePoint(Point spritePoint) {
-        Point oldValue = this.spritePoint;
-        Point newValue = spritePoint;
-        this.spritePoint = spritePoint;
+    public int getRows() {
+        return grid.length;
+    }
+
+    public int getColumns() {
+        return grid[0].length;
+    }
+
+    public MatrixPosition getPosition(SpritePosition p) {
+        return getPosition(p.row, p.column);
+    }
+
+    public MatrixPosition getPosition(int row, int col) {
+        return grid[row][col];
+    }
+
+    public void setSpritePoint(SpritePosition spritePosition) {
+        SpritePosition oldValue = this.spritePosition;
+        SpritePosition newValue = spritePosition;
+        this.spritePosition = spritePosition;
         pcSupport.firePropertyChange(SPRITE_POINT, oldValue, newValue);
     }
 
-    public boolean isPointValid(Point p) {
-        if (p.x < 0 || p.y < 0) {
+    public boolean isPointValid(SpritePosition p) {
+        if (p.column < 0 || p.row < 0) {
             return false;
         }
-        if (p.x >= grid[0].length || p.y >= grid.length) {
+        if (p.column >= grid[0].length || p.row >= grid.length) {
             return false;
         }
-        return grid[p.x][p.y] == MatrixPosition.CORRIDOR;
+        return grid[p.row][p.column] == MatrixPosition.CORRIDOR;
     }
 
     public boolean isMoveValid(Direction direction) {
-        int x = spritePoint.x;
-        int y = spritePoint.y;
+        int row = spritePosition.row;
+        int column = spritePosition.column;
         switch (direction) {
         case UP:
-            return isPointValid(new Point(x, y - 1));
+            return isPointValid(new SpritePosition(row - 1, column));
         case DOWN:
-            return isPointValid(new Point(x, y + 1));
+            return isPointValid(new SpritePosition(row + 1, column));
         case LEFT:
-            return isPointValid(new Point(x - 1, y));
+            return isPointValid(new SpritePosition(row, column - 1));
         case RIGHT:
-            return isPointValid(new Point(x + 1, y));
+            return isPointValid(new SpritePosition(row, column + 1));
         default:
             return false;
         }
@@ -163,20 +320,23 @@ class MatrixModel {
 
     public void move(Direction direction) {
         if (!isMoveValid(direction)) {
-            String text = "For move to " + direction + "spritePoint: " + spritePoint;
+            String text = "For move to " + direction + "spritePosition: " + spritePosition;
             throw new IllegalArgumentException(text);
         }
-        int x = spritePoint.x;
-        int y = spritePoint.y;
+        int row = spritePosition.row;
+        int column = spritePosition.column;
         switch (direction) {
         case UP:
-            setSpritePoint(new Point(x, y - 1));
+            setSpritePoint(new SpritePosition(row - 1, column));
+            break;
         case DOWN:
-            setSpritePoint(new Point(x, y + 1));
+            setSpritePoint(new SpritePosition(row + 1, column));
+            break;
         case LEFT:
-            setSpritePoint(new Point(x - 1, y));
+            setSpritePoint(new SpritePosition(row, column - 1));
+            break;
         case RIGHT:
-            setSpritePoint(new Point(x + 1, y));
+            setSpritePoint(new SpritePosition(row, column + 1));
             break;
 
         default:
@@ -184,8 +344,8 @@ class MatrixModel {
         }
     }
 
-    public Point getSpritePoint() {
-        return spritePoint;
+    public SpritePosition getSpritePosition() {
+        return spritePosition;
     }
 
     public void addPropertyChangeListener(PropertyChangeListener listener) {
@@ -242,4 +402,36 @@ enum MatrixPosition {
         }
         return getMatrixPosition(value);
     }
+}
+
+class SpritePosition {
+    int row;
+    int column;
+
+    public SpritePosition(int row, int column) {
+        this.row = row;
+        this.column = column;
+    }
+
+    public int getRow() {
+        return row;
+    }
+
+    public void setRow(int row) {
+        this.row = row;
+    }
+
+    public int getColumn() {
+        return column;
+    }
+
+    public void setColumn(int column) {
+        this.column = column;
+    }
+    
+    public void setRowColumn(int row, int column) {
+        this.row = row;
+        this.column = column;
+    }
+
 }
