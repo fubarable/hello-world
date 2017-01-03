@@ -1,4 +1,4 @@
-package foo;
+package foo1;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;

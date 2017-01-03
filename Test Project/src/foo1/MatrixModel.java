@@ -1,4 +1,4 @@
-package foo;
+package foo1;
 
 import java.beans.PropertyChangeListener;
 import javax.swing.event.SwingPropertyChangeSupport;

@@ -1,4 +1,4 @@
-package foo;
+package foo1;
 
 public enum MatrixPosition {
     WALL(1), CORRIDOR(0), END(2);

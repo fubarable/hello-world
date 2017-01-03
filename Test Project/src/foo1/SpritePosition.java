@@ -1,4 +1,4 @@
-package foo;
+package foo1;
 
 public class SpritePosition {
     int row;

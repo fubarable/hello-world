@@ -1,4 +1,4 @@
-package foo;
+package foo1;
 
 import java.awt.Color;
 import java.awt.Dimension;
