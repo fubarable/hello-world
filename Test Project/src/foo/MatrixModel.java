@@ -5,9 +5,11 @@ import javax.swing.event.SwingPropertyChangeSupport;
 
 public class MatrixModel {
     public static final String SPRITE_POINT = "sprite point";
+    public static final String GAME_STATE = "game state";
     private SwingPropertyChangeSupport pcSupport = new SwingPropertyChangeSupport(this);
     private MatrixPosition[][] grid;
     private SpritePosition spritePosition;
+    private GameState gameState = GameState.START;
 
     public MatrixModel(MatrixPosition[][] grid, SpritePosition spritePosition) {
         this.grid = grid;
@@ -30,13 +32,26 @@ public class MatrixModel {
         return grid[row][col];
     }
 
+    public GameState getGameState() {
+        return gameState;
+    }
+
     public void setSpritePoint(SpritePosition spritePosition) {
         SpritePosition oldValue = this.spritePosition;
         SpritePosition newValue = spritePosition;
         this.spritePosition = spritePosition;
         pcSupport.firePropertyChange(SPRITE_POINT, oldValue, newValue);
+        
+        // todo: check for win, update GameState
     }
 
+    public void setGameState(GameState gameState) {
+        GameState oldValue = this.gameState;
+        GameState newValue = gameState;
+        this.gameState = gameState;
+        pcSupport.firePropertyChange(GAME_STATE, oldValue, newValue);
+    }
+    
     public boolean isPointValid(SpritePosition p) {
         if (p.column < 0 || p.row < 0) {
             return false;
@@ -68,6 +83,9 @@ public class MatrixModel {
         if (!isMoveValid(direction)) {
             String text = "For move to " + direction + "spritePosition: " + spritePosition;
             throw new IllegalArgumentException(text);
+        }
+        if (gameState == GameState.START) {
+            setGameState(GameState.PLAYING);
         }
         int row = spritePosition.row;
         int column = spritePosition.column;
